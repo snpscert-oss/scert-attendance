@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SCERT Training Attendance</title>
+
+  <!-- ── PWA manifest ── -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- ── Theme & status bar ── -->
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- ── iOS / Safari PWA ── -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SCERT Attend">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- ── Tile for Windows ── -->
+  <meta name="msapplication-TileColor" content="#1a73e8">
+  <meta name="msapplication-TileImage" content="icons/icon-192.png">
+
+  <!-- ── Description / SEO ── -->
+  <meta name="description" content="SCERT Geo-Tagged Training Attendance System">
+  <meta name="application-name" content="SCERT Training Attendance">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    :root{
+      --primary:#1a73e8;--primary-dark:#1557b0;--success:#34a853;
+      --danger:#ea4335;--warning:#f9ab00;--bg:#f1f3f4;--card:#fff;
+      --text:#202124;--sub:#5f6368;--border:#e0e0e0;
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+         background:var(--bg);max-width:430px;margin:0 auto;min-height:100vh;
+         position:relative;overflow-x:hidden;}
+
+    /* ── SCREENS ── */
+    .screen{display:none;flex-direction:column;min-height:100vh;}
+    .screen.active{display:flex;}
+
+    /* ── HEADER ── */
+    .hdr{background:var(--primary);color:#fff;padding:14px 16px;display:flex;
+         align-items:center;gap:10px;position:sticky;top:0;z-index:50;
+         box-shadow:0 2px 6px rgba(0,0,0,.25);}
+    .hdr h1{font-size:17px;font-weight:600;flex:1;}
+    .hdr .logo{font-size:22px;}
+    .hdr-btn{background:rgba(255,255,255,.2);border:none;color:#fff;
+             padding:5px 12px;border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;}
+
+    /* ── BOTTOM NAV ── */
+    .bnav{background:#fff;display:flex;border-top:1px solid var(--border);
+          position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+          width:100%;max-width:430px;z-index:50;}
+    .ni{flex:1;display:flex;flex-direction:column;align-items:center;
+        padding:8px 2px 6px;cursor:pointer;color:var(--sub);
+        font-size:10px;gap:2px;border:none;background:none;position:relative;}
+    .ni.active{color:var(--primary);}
+    .ni svg{width:22px;height:22px;}
+    .nbadge{position:absolute;top:4px;right:calc(50% - 18px);
+            background:var(--danger);color:#fff;border-radius:8px;
+            font-size:9px;font-weight:700;padding:1px 4px;min-width:14px;text-align:center;}
+
+    /* ── CONTENT ── */
+    .cnt{flex:1;padding:14px;overflow-y:auto;padding-bottom:76px;}
+
+    /* ── CARDS ── */
+    .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;
+          box-shadow:0 1px 4px rgba(0,0,0,.09);}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+    .sc{background:#fff;border-radius:14px;padding:14px 16px;
+        box-shadow:0 1px 4px rgba(0,0,0,.09);}
+    .sc-ico{font-size:26px;margin-bottom:6px;}
+    .sc-val{font-size:24px;font-weight:700;color:var(--text);}
+    .sc-lbl{font-size:11px;color:var(--sub);margin-top:1px;}
+
+    /* ── LIST ITEMS ── */
+    .li{background:#fff;border-radius:12px;padding:13px 14px;margin-bottom:8px;
+        display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;}
+    .li:active{opacity:.8;}
+    .li .ico{width:42px;height:42px;border-radius:11px;display:flex;
+             align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+    .li .inf{flex:1;min-width:0;}
+    .li .inf h3{font-size:14px;font-weight:600;color:var(--text);
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .li .inf p{font-size:12px;color:var(--sub);margin-top:1px;white-space:nowrap;
+               overflow:hidden;text-overflow:ellipsis;}
+    .arr{color:var(--sub);font-size:20px;font-weight:300;}
+
+    /* ── BUTTONS ── */
+    .btn{width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;
+         font-weight:600;cursor:pointer;transition:opacity .15s;}
+    .btn:active{opacity:.8;}
+    .btn-p{background:var(--primary);color:#fff;}
+    .btn-s{background:var(--success);color:#fff;}
+    .btn-d{background:var(--danger);color:#fff;}
+    .btn-o{background:#fff;color:var(--primary);border:2px solid var(--primary);}
+    .btn-sm{padding:7px 14px;font-size:12px;width:auto;border-radius:8px;}
+
+    /* ── FORMS ── */
+    .fg{margin-bottom:14px;}
+    .fl{font-size:12px;font-weight:600;color:var(--sub);margin-bottom:5px;display:block;}
+    .fc{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;
+        font-size:14px;outline:none;transition:border-color .2s;background:#fff;}
+    .fc:focus{border-color:var(--primary);}
+    select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%235f6368'/%3E%3C/svg%3E");
+              background-repeat:no-repeat;background-position:right 12px center;}
+    textarea.fc{resize:vertical;}
+
+    /* ── BADGES ── */
+    .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+    .bg-s{background:#e6f4ea;color:#137333;}
+    .bg-d{background:#fce8e6;color:#c5221f;}
+    .bg-p{background:#e8f0fe;color:#1558d6;}
+    .bg-w{background:#fef7e0;color:#856404;}
+
+    /* ── LOGIN ── */
+    #screen-login{background:var(--primary);align-items:center;
+                  justify-content:center;padding:24px;}
+    .login-box{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:380px;}
+    .role-btn{width:100%;padding:13px 14px;border-radius:12px;border:2px solid var(--border);
+              background:#fff;display:flex;align-items:center;gap:12px;cursor:pointer;
+              margin-bottom:10px;transition:all .2s;text-align:left;}
+    .role-btn:hover,.role-btn.sel{border-color:var(--primary);background:#e8f0fe;}
+    .rbi{font-size:28px;}
+    .rbt h3{font-size:15px;font-weight:600;color:var(--text);}
+    .rbt p{font-size:11px;color:var(--sub);}
+    .pin-wrap{display:flex;gap:8px;justify-content:center;margin:14px 0;}
+    .pin-in{width:52px;height:56px;border:2px solid var(--border);border-radius:10px;
+            text-align:center;font-size:22px;font-weight:700;outline:none;}
+    .pin-in:focus{border-color:var(--primary);}
+
+    /* ── GEO INDICATOR ── */
+    .geo{background:#e6f4ea;border:1.5px solid #81c784;border-radius:10px;
+         padding:11px;margin-bottom:10px;display:flex;align-items:center;gap:9px;font-size:13px;}
+    .geo.err{background:#fce8e6;border-color:#ef9a9a;}
+    .geo.pend{background:#fff8e1;border-color:#ffe082;}
+
+    /* ── CHECKIN DISPLAY ── */
+    .ci-wrap{text-align:center;padding:20px 0;}
+    .ci-ico{font-size:64px;margin-bottom:8px;}
+    .ci-dist{font-size:30px;font-weight:700;color:var(--text);}
+    .ci-lbl{font-size:13px;color:var(--sub);margin-top:3px;}
+
+    /* ── MODAL ── */
+    .ov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);
+        z-index:200;display:none;align-items:flex-end;}
+    .ov.active{display:flex;}
+    .mo{background:#fff;border-radius:20px 20px 0 0;padding:22px;width:100%;
+        max-height:88vh;overflow-y:auto;}
+    .moh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+    .mot{font-size:17px;font-weight:700;color:var(--text);}
+    .mox{background:#f1f3f4;border:none;border-radius:50%;width:30px;height:30px;
+         cursor:pointer;font-size:15px;line-height:30px;text-align:center;}
+
+    /* ── MESSAGES ── */
+    .msg-bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:13px;margin-bottom:6px;}
+    .msg-sent{background:var(--primary);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+    .msg-recv{background:#fff;color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+    .msg-ann{background:#fff8e1;color:var(--text);align-self:stretch;max-width:100%;border-radius:10px;border-left:4px solid var(--warning);}
+    .msg-meta{font-size:10px;opacity:.65;margin-top:3px;}
+
+    /* ── SECTION HDR ── */
+    .sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+    .st{font-size:15px;font-weight:700;color:var(--text);}
+    .sa{font-size:12px;color:var(--primary);font-weight:600;cursor:pointer;border:none;background:none;}
+
+    /* ── REPORT ROW ── */
+    .rr{background:#fff;border-radius:8px;padding:11px 13px;margin-bottom:6px;
+        display:flex;align-items:center;justify-content:space-between;
+        box-shadow:0 1px 3px rgba(0,0,0,.07);}
+
+    /* ── EMPTY ── */
+    .empty{text-align:center;padding:36px 20px;color:var(--sub);}
+    .empty .eico{font-size:46px;margin-bottom:10px;}
+
+    /* ── TAB PILLS ── */
+    .pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;}
+    .pill{padding:7px 14px;border-radius:18px;font-size:12px;font-weight:600;
+          cursor:pointer;white-space:nowrap;border:none;background:#fff;color:var(--sub);}
+    .pill.active{background:var(--primary);color:#fff;}
+
+    /* ── SLIDER ── */
+    input[type=range]{width:100%;accent-color:var(--primary);}
+
+    /* ── COORDS ── */
+    .coords{font-size:11px;color:var(--sub);font-family:monospace;background:#f5f5f5;
+            padding:5px 9px;border-radius:6px;margin-top:5px;}
+
+    /* ── TOAST ── */
+    #toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);
+           background:#323232;color:#fff;padding:10px 18px;border-radius:8px;
+           font-size:13px;z-index:400;opacity:0;transition:opacity .3s;
+           pointer-events:none;white-space:nowrap;max-width:88%;text-align:center;}
+    #toast.show{opacity:1;}
+
+    /* ── DIVIDER ── */
+    .div{height:1px;background:var(--border);margin:12px 0;}
+
+    /* ── VENUE COORDS ── */
+    .vc{font-size:11px;color:var(--sub);font-family:monospace;}
+  </style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════ -->
+<div id="screen-login" class="screen active">
+  <div style="text-align:center;margin-bottom:28px;">
+    <div style="font-size:70px;margin-bottom:10px;">📍</div>
+    <div style="color:#fff;font-size:22px;font-weight:700;line-height:1.3;">SCERT Training Attendance</div>
+    <div style="color:rgba(255,255,255,.75);font-size:12px;margin-top:4px;">State Council of Educational Research &amp; Training</div>
+  </div>
+
+  <div class="login-box">
+    <!-- Step 1: Role -->
+    <div id="ls-role">
+      <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;">Sign in as</p>
+      <button class="role-btn" onclick="selectRole('admin')">
+        <span class="rbi">🔐</span>
+        <div class="rbt"><h3>Administrator</h3><p>Manage venues, events &amp; reports</p></div>
+      </button>
+      <button class="role-btn" onclick="selectRole('participant')">
+        <span class="rbi">👤</span>
+        <div class="rbt"><h3>Participant</h3><p>Check in &amp; send/receive messages</p></div>
+      </button>
+      <div class="div"></div>
+      <button class="role-btn" onclick="showStep('ls-reg')">
+        <span class="rbi">✨</span>
+        <div class="rbt"><h3>New? Register</h3><p>Create a participant account</p></div>
+      </button>
+    </div>
+
+    <!-- Step 2: PIN -->
+    <div id="ls-pin" style="display:none;">
+      <button onclick="showStep('ls-role')" class="sa" style="margin-bottom:14px;">← Back</button>
+      <p id="pin-title" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Admin Login</p>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:12px;">Enter your 4-digit PIN</p>
+      <div id="pin-user-area"></div>
+      <div class="pin-wrap">
+        <input class="pin-in" type="password" maxlength="1" id="p1" oninput="pMove(this,'p2')">
+        <input class="pin-in" type="password" maxlength="1" id="p2" oninput="pMove(this,'p3')" onkeydown="pBack(event,'p1')">
+        <input class="pin-in" type="password" maxlength="1" id="p3" oninput="pMove(this,'p4')" onkeydown="pBack(event,'p2')">
+        <input class="pin-in" type="password" maxlength="1" id="p4" oninput="pAuto()" onkeydown="pBack(event,'p3')">
+      </div>
+      <button class="btn btn-p" onclick="doLogin()">Sign In</button>
+    </div>
+
+    <!-- Step 3: Register -->
+    <div id="ls-reg" style="display:none;">
+      <button onclick="showStep('ls-role')" class="sa" style="margin-bottom:14px;">← Back</button>
+      <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Participant Registration</p>
+      <p style="font-size:11px;color:var(--sub);margin-bottom:14px;">Fill all details as per SCERT format</p>
+      <div class="fg"><label class="fl">Full Name *</label>
+        <input type="text" class="fc" id="rg-name" placeholder="Name of participant"></div>
+      <div class="fg"><label class="fl">Designation *</label>
+        <input type="text" class="fc" id="rg-desig" placeholder="e.g. HM / Teacher / BRC"></div>
+      <div class="fg"><label class="fl">Contact Number *</label>
+        <input type="tel" class="fc" id="rg-contact" placeholder="10-digit mobile number" maxlength="15"></div>
+      <div class="fg"><label class="fl">BAC (Block Academic Coordinator)</label>
+        <input type="text" class="fc" id="rg-bac" placeholder="BAC name / code"></div>
+      <div class="fg"><label class="fl">Name of Institution *</label>
+        <input type="text" class="fc" id="rg-institution" placeholder="School / college name"></div>
+      <div class="fg"><label class="fl">District *</label>
+        <input type="text" class="fc" id="rg-district" placeholder="District name"></div>
+      <div class="fg"><label class="fl">Email (optional)</label>
+        <input type="email" class="fc" id="rg-email" placeholder="email@example.com"></div>
+      <div class="fg"><label class="fl">Create 4-digit PIN *</label>
+        <input type="password" class="fc" id="rg-pin" maxlength="4" placeholder="••••"></div>
+      <button class="btn btn-p" onclick="doRegister()">Register</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     ADMIN SCREEN
+═══════════════════════════════════════════ -->
+<div id="screen-admin" class="screen">
+  <div class="hdr">
+    <div class="logo">📍</div>
+    <h1 id="admin-hdr-title">SCERT Admin</h1>
+    <button class="hdr-btn" onclick="logout()">Logout</button>
+  </div>
+  <div class="cnt" id="admin-cnt"></div>
+  <nav class="bnav">
+    <button class="ni active" id="an-home" onclick="aNav('home')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home
+    </button>
+    <button class="ni" id="an-venues" onclick="aNav('venues')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>Venues
+    </button>
+    <button class="ni" id="an-events" onclick="aNav('events')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>Events
+    </button>
+    <button class="ni" id="an-msgs" onclick="aNav('msgs')" style="position:relative;">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      <span id="a-msg-badge" class="nbadge" style="display:none;"></span>Messages
+    </button>
+    <button class="ni" id="an-reports" onclick="aNav('reports')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>Reports
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PARTICIPANT SCREEN
+═══════════════════════════════════════════ -->
+<div id="screen-part" class="screen">
+  <div class="hdr">
+    <div class="logo">📍</div>
+    <h1 id="part-hdr-name">Participant</h1>
+    <button class="hdr-btn" onclick="logout()">Logout</button>
+  </div>
+  <div class="cnt" id="part-cnt"></div>
+  <nav class="bnav">
+    <button class="ni active" id="pn-home" onclick="pNav('home')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home
+    </button>
+    <button class="ni" id="pn-checkin" onclick="pNav('checkin')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>Check In
+    </button>
+    <button class="ni" id="pn-msgs" onclick="pNav('msgs')" style="position:relative;">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      <span id="p-msg-badge" class="nbadge" style="display:none;"></span>Messages
+    </button>
+    <button class="ni" id="pn-record" onclick="pNav('record')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>My Record
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════ -->
+
+<!-- Add Venue -->
+<div id="mo-venue" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot">Add Venue</span><button class="mox" onclick="closeMo('mo-venue')">✕</button></div>
+    <div class="fg"><label class="fl">Venue Name *</label>
+      <input type="text" class="fc" id="vn-name" placeholder="e.g. Conference Hall A"></div>
+    <div class="fg"><label class="fl">Address</label>
+      <input type="text" class="fc" id="vn-addr" placeholder="Street address or description"></div>
+    <div class="fg"><label class="fl">Geo-fence Radius: <b id="rv">25</b> m</label>
+      <input type="range" id="vn-radius" min="10" max="50" value="25"
+             oninput="document.getElementById('rv').textContent=this.value"></div>
+    <div id="vn-geo-status" class="geo pend"><span>⏳</span><span>Tap button below to capture venue GPS</span></div>
+    <div id="vn-coords" class="coords" style="display:none;"></div>
+    <button class="btn btn-o" style="margin-bottom:10px;" onclick="captureVenueGPS()">📍 Capture My Location as Venue</button>
+    <button class="btn btn-p" onclick="saveVenue()">Save Venue</button>
+  </div>
+</div>
+
+<!-- Add Event -->
+<div id="mo-event" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot">Add Event</span><button class="mox" onclick="closeMo('mo-event')">✕</button></div>
+    <div class="fg"><label class="fl">Event Name *</label>
+      <input type="text" class="fc" id="ev-name" placeholder="e.g. Morning Training Session"></div>
+    <div class="fg"><label class="fl">Venue *</label>
+      <select class="fc" id="ev-venue"></select></div>
+    <div class="fg"><label class="fl">Date *</label>
+      <input type="date" class="fc" id="ev-date"></div>
+    <div class="fg"><label class="fl">Description</label>
+      <input type="text" class="fc" id="ev-desc" placeholder="Optional"></div>
+    <button class="btn btn-p" onclick="saveEvent()">Create Event</button>
+  </div>
+</div>
+
+<!-- Send Message -->
+<div id="mo-msg" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot">Send Message</span><button class="mox" onclick="closeMo('mo-msg')">✕</button></div>
+    <div class="fg"><label class="fl">Type</label>
+      <select class="fc" id="msg-type" onchange="toggleRecip()">
+        <option value="announcement">📢 Announcement (broadcast to all)</option>
+        <option value="chat">💬 Direct Message (specific participant)</option>
+      </select></div>
+    <div class="fg" id="msg-recip-grp" style="display:none;">
+      <label class="fl">Recipient</label>
+      <select class="fc" id="msg-recip"></select></div>
+    <div class="fg"><label class="fl">Message *</label>
+      <textarea class="fc" id="msg-body" rows="4" placeholder="Type your message…"></textarea></div>
+    <div class="fg"><label class="fl">Attach PDF (optional)</label>
+      <input type="file" class="fc" id="msg-file" accept=".pdf,.doc,.docx,.txt,.png,.jpg"></div>
+    <button class="btn btn-p" onclick="adminSendMsg()">Send</button>
+  </div>
+</div>
+
+<!-- Event Detail -->
+<div id="mo-evdet" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot" id="evdet-title">Event Detail</span>
+      <button class="mox" onclick="closeMo('mo-evdet')">✕</button></div>
+    <div id="evdet-body"></div>
+  </div>
+</div>
+
+<!-- Participant: Reply/Send -->
+<div id="mo-preply" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot">Send to Admin</span><button class="mox" onclick="closeMo('mo-preply')">✕</button></div>
+    <div class="fg"><label class="fl">Message *</label>
+      <textarea class="fc" id="pr-body" rows="4" placeholder="Type your message…"></textarea></div>
+    <div class="fg"><label class="fl">Attach file / PDF (optional)</label>
+      <input type="file" class="fc" id="pr-file" accept=".pdf,.doc,.docx,.txt,.png,.jpg"></div>
+    <button class="btn btn-p" onclick="partSendMsg()">Send to Admin</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════ -->
+<script>
+/* ─── DB helpers ─── */
+const DB = {
+  g: k => JSON.parse(localStorage.getItem('vt_'+k)||'[]'),
+  s: (k,v) => localStorage.setItem('vt_'+k, JSON.stringify(v)),
+  go: k => JSON.parse(localStorage.getItem('vt_'+k)||'null'),
+  so: (k,v) => localStorage.setItem('vt_'+k, JSON.stringify(v))
+};
+const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2,5);
+
+/* ─── Bootstrap ─── */
+function boot() {
+  const users = DB.g('users');
+  if (!users.find(u=>u.role==='admin')) {
+    users.push({id:uid(),name:'Administrator',email:'admin@scert.app',pin:'1234',role:'admin'});
+    DB.s('users',users);
+  }
+  // Restore session
+  const sess = DB.go('session');
+  if (sess) {
+    const u = DB.g('users').find(u=>u.id===sess.uid);
+    if (u) { CU=u; enterApp(); }
+  }
+}
+
+/* ─── Auth state ─── */
+let CU = null; // current user
+let selRole = null;
+let capLat = null, capLng = null; // captured GPS for venue
+let ciLat = null, ciLng = null;   // check-in GPS
+let ciVenue = null;               // currently selected check-in venue
+
+/* ─── Login flow ─── */
+function showStep(id) {
+  ['ls-role','ls-pin','ls-reg'].forEach(s=>document.getElementById(s).style.display='none');
+  document.getElementById(id).style.display='block';
+}
+
+function selectRole(role) {
+  selRole = role;
+  document.getElementById('pin-title').textContent = role==='admin' ? 'Admin Login' : 'Participant Login';
+  const users = DB.g('users').filter(u=>u.role===role);
+  const area = document.getElementById('pin-user-area');
+  if (users.length > 1) {
+    area.innerHTML = `<div class="fg"><label class="fl">Select User</label>
+      <select class="fc" id="pin-usel">${users.map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}</select></div>`;
+  } else if (users.length === 1) {
+    area.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:8px;">Logging in as <b>${users[0].name}</b></p>`;
+  } else {
+    area.innerHTML = `<p style="color:var(--danger);font-size:13px;">No ${role} accounts found.</p>`;
+  }
+  ['p1','p2','p3','p4'].forEach(id=>document.getElementById(id).value='');
+  showStep('ls-pin');
+  setTimeout(()=>document.getElementById('p1').focus(),100);
+}
+
+function pMove(el,nxt){ if(el.value.length===1) document.getElementById(nxt).focus(); }
+function pBack(e,prv){ if(e.key==='Backspace'&&!e.target.value) document.getElementById(prv).focus(); }
+function pAuto(){ /* optional: doLogin() on last digit */ }
+
+function doLogin() {
+  const pin = ['p1','p2','p3','p4'].map(i=>document.getElementById(i).value).join('');
+  if (pin.length!==4){ toast('Enter 4-digit PIN'); return; }
+  const users = DB.g('users').filter(u=>u.role===selRole);
+  let u;
+  const usel = document.getElementById('pin-usel');
+  if (usel) { u = users.find(x=>x.id===usel.value&&x.pin===pin); }
+  else       { u = users[0]; if(u&&u.pin!==pin) u=null; }
+  if (!u){ toast('Wrong PIN – try again'); return; }
+  CU = u;
+  DB.so('session',{uid:u.id});
+  enterApp();
+}
+
+function doRegister() {
+  const name        = document.getElementById('rg-name').value.trim();
+  const desig       = document.getElementById('rg-desig').value.trim();
+  const contact     = document.getElementById('rg-contact').value.trim();
+  const bac         = document.getElementById('rg-bac').value.trim();
+  const institution = document.getElementById('rg-institution').value.trim();
+  const district    = document.getElementById('rg-district').value.trim();
+  const email       = document.getElementById('rg-email').value.trim();
+  const pin         = document.getElementById('rg-pin').value.trim();
+  if (!name)        { toast('Enter your name'); return; }
+  if (!desig)       { toast('Enter your designation'); return; }
+  if (!contact)     { toast('Enter your contact number'); return; }
+  if (!institution) { toast('Enter name of institution'); return; }
+  if (!district)    { toast('Enter your district'); return; }
+  if (!/^\d{4}$/.test(pin)){ toast('PIN must be exactly 4 digits'); return; }
+  const users = DB.g('users');
+  users.push({id:uid(),name,desig,contact,bac,institution,district,email,pin,role:'participant'});
+  DB.s('users',users);
+  toast('Registered! Please sign in.');
+  showStep('ls-role');
+}
+
+function enterApp() {
+  showScreen(CU.role==='admin'?'admin':'part');
+  if (CU.role==='admin'){
+    document.getElementById('admin-hdr-title').textContent = 'SCERT Admin';
+    aNav('home');
+  } else {
+    document.getElementById('part-hdr-name').textContent = CU.name;
+    pNav('home');
+  }
+}
+
+function logout() {
+  CU=null; DB.so('session',null);
+  showScreen('login'); showStep('ls-role');
+}
+
+/* ─── Screen routing ─── */
+function showScreen(n) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+n).classList.add('active');
+}
+
+/* ─── Admin nav ─── */
+let aTab='home';
+function aNav(tab) {
+  aTab=tab;
+  document.querySelectorAll('#screen-admin .ni').forEach(b=>b.classList.remove('active'));
+  document.getElementById('an-'+tab).classList.add('active');
+  renderAdmin(tab);
+}
+
+/* ─── Participant nav ─── */
+let pTab='home';
+function pNav(tab) {
+  pTab=tab;
+  document.querySelectorAll('#screen-part .ni').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pn-'+tab).classList.add('active');
+  renderPart(tab);
+}
+
+/* ════════════════════════════════════════════
+   ADMIN RENDERS
+════════════════════════════════════════════ */
+function renderAdmin(tab) {
+  const cnt = document.getElementById('admin-cnt');
+  if (tab==='home')    renderAHome(cnt);
+  else if(tab==='venues')  renderAVenues(cnt);
+  else if(tab==='events')  renderAEvents(cnt);
+  else if(tab==='msgs')    renderAMsgs(cnt);
+  else if(tab==='reports') renderAReports(cnt);
+  updateAdminBadge();
+}
+
+function updateAdminBadge() {
+  const replies = DB.g('messages').filter(m=>m.senderRole==='participant'&&(!m.adminRead));
+  const badge = document.getElementById('a-msg-badge');
+  if (replies.length>0){ badge.style.display='block'; badge.textContent=replies.length; }
+  else badge.style.display='none';
+}
+
+function renderAHome(c) {
+  const venues=DB.g('venues'), events=DB.g('events');
+  const parts=DB.g('users').filter(u=>u.role==='participant');
+  const att=DB.g('attendance');
+  const today=new Date().toDateString();
+  const todayC=att.filter(a=>new Date(a.ts).toDateString()===today).length;
+  c.innerHTML=`
+    <div style="margin-bottom:14px;">
+      <p style="font-size:12px;color:var(--sub);">Welcome back,</p>
+      <p style="font-size:19px;font-weight:700;">${CU.name}</p>
+    </div>
+    <div class="stats-grid">
+      <div class="sc"><div class="sc-ico">🏢</div><div class="sc-val">${venues.length}</div><div class="sc-lbl">Venues</div></div>
+      <div class="sc"><div class="sc-ico">📅</div><div class="sc-val">${events.length}</div><div class="sc-lbl">Events</div></div>
+      <div class="sc"><div class="sc-ico">👥</div><div class="sc-val">${parts.length}</div><div class="sc-lbl">Participants</div></div>
+      <div class="sc"><div class="sc-ico">✅</div><div class="sc-val">${todayC}</div><div class="sc-lbl">Today's Check-ins</div></div>
+    </div>
+    <div class="sh"><span class="st">Quick Actions</span></div>
+    <div class="li" onclick="openMoVenue()">
+      <div class="ico" style="background:#e8f0fe;">📍</div>
+      <div class="inf"><h3>Add New Venue</h3><p>Capture GPS &amp; set geo-fence radius</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="openMoEvent()">
+      <div class="ico" style="background:#e6f4ea;">📅</div>
+      <div class="inf"><h3>Create Event</h3><p>Link event to a venue</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="openMoMsg()">
+      <div class="ico" style="background:#fff8e1;">📢</div>
+      <div class="inf"><h3>Send Announcement</h3><p>Broadcast to all participants</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="aNav('reports')">
+      <div class="ico" style="background:#fce8e6;">📊</div>
+      <div class="inf"><h3>Attendance Reports</h3><p>View &amp; export PDF</p></div>
+      <div class="arr">›</div>
+    </div>
+  `;
+}
+
+function renderAVenues(c) {
+  const venues=DB.g('venues');
+  c.innerHTML=`
+    <div class="sh"><span class="st">Venues (${venues.length})</span>
+      <button class="sa" onclick="openMoVenue()">+ Add Venue</button></div>
+    ${venues.length===0?`<div class="empty"><div class="eico">🏢</div><p>No venues yet.<br>Add your first venue.</p></div>`
+    :venues.map(v=>`
+      <div class="li" style="align-items:flex-start;padding:14px;">
+        <div class="ico" style="background:#e8f0fe;">📍</div>
+        <div class="inf" style="min-width:0;">
+          <h3>${esc(v.name)}</h3>
+          <p>${esc(v.address||'No address')} &bull; Radius: ${v.radius}m</p>
+          <div class="vc">Lat:${v.lat.toFixed(6)} Lng:${v.lng.toFixed(6)}</div>
+        </div>
+        <button class="btn btn-d btn-sm" onclick="delVenue('${v.id}',event)">✕</button>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderAEvents(c) {
+  const events=DB.g('events');
+  c.innerHTML=`
+    <div class="sh"><span class="st">Events (${events.length})</span>
+      <button class="sa" onclick="openMoEvent()">+ Add Event</button></div>
+    ${events.length===0?`<div class="empty"><div class="eico">📅</div><p>No events yet.</p></div>`
+    :events.map(e=>{
+      const cnt=DB.g('attendance').filter(a=>a.evId===e.id).length;
+      return `<div class="li" onclick="showEvDet('${e.id}')">
+        <div class="ico" style="background:#e6f4ea;">📅</div>
+        <div class="inf"><h3>${esc(e.name)}</h3><p>${esc(e.vname)} &bull; ${e.date}</p><p>${cnt} checked in</p></div>
+        <div class="arr">›</div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function renderAMsgs(c) {
+  const allMsgs=DB.g('messages');
+  // mark participant replies as admin-read
+  const msgs=DB.g('messages');
+  msgs.forEach(m=>{ if(m.senderRole==='participant') m.adminRead=true; });
+  DB.s('messages',msgs);
+  updateAdminBadge();
+
+  const outbox=allMsgs.filter(m=>m.senderRole==='admin');
+  const inbox=allMsgs.filter(m=>m.senderRole==='participant');
+  c.innerHTML=`
+    <div class="sh"><span class="st">Sent Messages</span>
+      <button class="sa" onclick="openMoMsg()">+ Send</button></div>
+    ${outbox.length===0?`<div class="empty"><div class="eico">📤</div><p>No messages sent yet.</p></div>`
+    :outbox.slice().reverse().map(m=>msgCard(m,'admin')).join('')}
+    <div class="div"></div>
+    <div class="sh"><span class="st">Received from Participants</span></div>
+    ${inbox.length===0?`<p style="font-size:13px;color:var(--sub);text-align:center;">No replies yet</p>`
+    :inbox.slice().reverse().map(m=>msgCard(m,'admin')).join('')}
+  `;
+}
+
+function msgCard(m, viewer) {
+  const isAnn = m.type==='announcement';
+  const fromMe = (viewer==='admin'&&m.senderRole==='admin')||(viewer==='part'&&m.senderRole==='participant');
+  return `
+    <div style="background:#fff;border-radius:12px;padding:13px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span class="badge ${isAnn?'bg-w':'bg-p'}">${isAnn?'📢 Broadcast':'💬 '+(fromMe?'To: '+esc(m.recipName||'All'):'From: '+esc(m.senderName))}</span>
+        <span style="font-size:10px;color:var(--sub);">${fmtTime(m.ts)}</span>
+      </div>
+      <p style="font-size:13px;color:var(--text);line-height:1.4;">${esc(m.body)}</p>
+      ${m.fname?`<div style="margin-top:6px;"><a href="#" onclick="dlAttach('${m.id}');return false;" style="font-size:12px;color:var(--primary);">📎 ${esc(m.fname)}</a></div>`:''}
+    </div>`;
+}
+
+function renderAReports(c) {
+  const events=DB.g('events');
+  c.innerHTML=`
+    <div class="sh"><span class="st">Attendance Reports</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-p btn-sm" onclick="exportPDF()">📥 PDF</button>
+        <button class="btn btn-s btn-sm" onclick="exportExcel()">📊 Excel</button>
+      </div></div>
+    <div class="pills" id="rpills">
+      <button class="pill active" onclick="filterRpt('all',this)">All Events</button>
+      ${events.map(e=>`<button class="pill" onclick="filterRpt('${e.id}',this)">${esc(e.name)}</button>`).join('')}
+    </div>
+    <div id="rpt-body"></div>
+  `;
+  filterRpt('all', document.querySelector('#rpills .pill'));
+}
+
+function filterRpt(evId, btn) {
+  document.querySelectorAll('#rpills .pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  let recs=DB.g('attendance');
+  if (evId!=='all') recs=recs.filter(r=>r.evId===evId);
+  const body=document.getElementById('rpt-body');
+  if (!recs.length){ body.innerHTML=`<div class="empty"><div class="eico">📊</div><p>No records found.</p></div>`; return; }
+  body.innerHTML=recs.slice().reverse().map((r,i)=>`
+    <div class="rr" style="flex-direction:column;align-items:stretch;gap:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;font-weight:700;">${i+1}. ${esc(r.uname)}</div>
+        <span class="badge bg-s">✓ Present</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;font-size:11px;color:var(--sub);">
+        <div>📋 ${esc(r.desig||'—')}</div>
+        <div>📞 ${esc(r.contact||'—')}</div>
+        <div>🏫 ${esc(r.institution||'—')}</div>
+        <div>📍 ${esc(r.district||'—')}</div>
+        ${r.bac?`<div>BAC: ${esc(r.bac)}</div>`:''}
+        <div>🏢 ${esc(r.vname)}</div>
+      </div>
+      <div style="font-size:10px;color:var(--sub);">${esc(r.ename)} &bull; ${fmtTime(r.ts)}${r.dist?' &bull; '+Math.round(r.dist)+'m':''}</div>
+    </div>
+  `).join('');
+}
+
+async function exportPDF() {
+  if (!window.jspdf){ toast('PDF library loading…'); return; }
+  const {jsPDF}=window.jspdf;
+  // Landscape for wide SCERT table
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const W=doc.internal.pageSize.getWidth();
+  const dateStr=new Date().toISOString().split('T')[0];
+
+  // ── Title block ──
+  doc.setFontSize(14); doc.setTextColor(26,115,232); doc.setFont('helvetica','bold');
+  doc.text('SCERT Training Attendance Register', W/2, 14, {align:'center'});
+  doc.setFontSize(9); doc.setTextColor(80,80,80); doc.setFont('helvetica','normal');
+  doc.text('Generated: '+new Date().toLocaleString()+'   |   Admin: '+CU.name, W/2, 20, {align:'center'});
+
+  const recs=DB.g('attendance');
+  if (!recs.length){
+    doc.setTextColor(0,0,0); doc.setFontSize(11);
+    doc.text('No attendance records found.', 20, 35);
+    doc.save('SCERT-Attendance-'+dateStr+'.pdf');
+    toast('PDF downloaded!'); return;
+  }
+
+  // Group by event for separate tables
+  const events=DB.g('events');
+  const evIds=[...new Set(recs.map(r=>r.evId))];
+
+  let startY=28;
+  evIds.forEach(evId=>{
+    const evRecs=recs.filter(r=>r.evId===evId);
+    const ev=events.find(e=>e.id===evId)||{name:evRecs[0]?.ename||'Unknown',vname:evRecs[0]?.vname||''};
+
+    // Event sub-header
+    if(startY>170){doc.addPage();startY=15;}
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,115,232);
+    doc.text(`Event: ${ev.name}   |   Venue: ${ev.vname||evRecs[0]?.vname||''}   |   Date: ${ev.date||''}`, 10, startY);
+    startY+=6;
+
+    // Column definitions [label, x, width]
+    const cols=[
+      ['Sl.No',  10,  10],
+      ['Name',   21,  32],
+      ['Designation',54,25],
+      ['Contact',80,  24],
+      ['BAC',   105,  20],
+      ['Institution',126,30],
+      ['Venue', 157,  28],
+      ['District',186,22],
+      ['Date & Sign\n(Day 1)',209,23],
+      ['Date & Sign\n(Day 2)',233,24],
+    ];
+
+    // Header row
+    doc.setFillColor(26,115,232); doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
+    const hh=8;
+    cols.forEach(([lbl,x,w])=>{
+      doc.rect(x,startY,w,hh,'F');
+      const lines=lbl.split('\n');
+      if(lines.length===2){
+        doc.text(lines[0],x+w/2,startY+3,{align:'center'});
+        doc.text(lines[1],x+w/2,startY+6.5,{align:'center'});
+      } else {
+        doc.text(lbl,x+w/2,startY+hh/2+1,{align:'center'});
+      }
+    });
+    startY+=hh;
+
+    // Data rows — group by participant to fill Day1/Day2
+    const byUser={};
+    evRecs.forEach(r=>{ if(!byUser[r.uid]) byUser[r.uid]=[]; byUser[r.uid].push(r); });
+    const participants=Object.values(byUser);
+
+    doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+    participants.forEach((pRecs,i)=>{
+      if(startY>188){doc.addPage();startY=15;}
+      const r=pRecs[0]; // profile from first record
+      const d1=pRecs[0]?new Date(pRecs[0].ts).toLocaleDateString():'';
+      const d2=pRecs[1]?new Date(pRecs[1].ts).toLocaleDateString():'';
+      const rh=7;
+      if(i%2===0){doc.setFillColor(245,247,250);cols.forEach(([,x,w])=>doc.rect(x,startY,w,rh,'F'));}
+      doc.setFontSize(7);
+      const tr=(s,mx)=>(s||'').toString().substring(0,mx);
+      doc.text(String(i+1),      10+5,  startY+rh/2+1,{align:'center'});
+      doc.text(tr(r.uname,22),   22,    startY+rh/2+1);
+      doc.text(tr(r.desig,17),   55,    startY+rh/2+1);
+      doc.text(tr(r.contact,16), 81,    startY+rh/2+1);
+      doc.text(tr(r.bac,13),     106,   startY+rh/2+1);
+      doc.text(tr(r.institution,20),127, startY+rh/2+1);
+      doc.text(tr(r.vname,18),   158,   startY+rh/2+1);
+      doc.text(tr(r.district,14),187,   startY+rh/2+1);
+      doc.text(d1,               210,   startY+rh/2+1);
+      doc.text(d2,               234,   startY+rh/2+1);
+      // row border
+      cols.forEach(([,x,w])=>doc.rect(x,startY,w,rh));
+      startY+=rh;
+    });
+    startY+=8; // gap between events
+  });
+
+  doc.save('SCERT-Attendance-'+dateStr+'.pdf');
+  toast('PDF downloaded!');
+}
+
+function exportExcel() {
+  if (typeof XLSX === 'undefined'){ toast('Spreadsheet library loading – try again in a moment'); return; }
+
+  const recs    = DB.g('attendance');
+  const events  = DB.g('events');
+  const venues  = DB.g('venues');
+  const users   = DB.g('users').filter(u=>u.role==='participant');
+  const wb      = XLSX.utils.book_new();
+  const dateStr = new Date().toISOString().split('T')[0];
+  const hdrS    = s => ({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A73E8'}},alignment:{horizontal:'center',wrapText:true}});
+  const setCols = (ws, widths) => { ws['!cols'] = widths.map(w=>({wch:w})); };
+  const titleS  = {font:{bold:true,sz:13,color:{rgb:'1A73E8'}}};
+
+  /* ══════════════════════════════════════════════════════
+     SHEET 1 – SCERT Attendance Register (exact format)
+     Columns: Sl.No | Name | Designation | Contact | BAC |
+              Institution | Venue | District | Date&Sign(D1) | Date&Sign(D2)
+  ══════════════════════════════════════════════════════ */
+  const scertTitle  = [['SCERT Training Attendance Register']];
+  const scertMeta   = [['Generated: '+new Date().toLocaleString()+'     Admin: '+CU.name],[]];
+  const scertHdrs   = [['Sl.No','Name of Participants','Designation','Contact Number','BAC',
+                         'Name of Institution','Name of Venue','District','Date & Sign (Day 1)','Date & Sign (Day 2)']];
+
+  // Group by event then by participant (one row per participant per event, Day1/Day2 as first two check-ins)
+  const scertRows = [];
+  let slNo = 1;
+  events.forEach(ev=>{
+    const evRecs = recs.filter(r=>r.evId===ev.id);
+    if(!evRecs.length) return;
+    // event sub-header row
+    scertRows.push([`Event: ${ev.name}   |   Venue: ${ev.vname}   |   Date: ${ev.date||''}`,
+                    '','','','','','','','','']);
+    // group by participant
+    const byUser={};
+    evRecs.forEach(r=>{ if(!byUser[r.uid]) byUser[r.uid]=[]; byUser[r.uid].push(r); });
+    Object.values(byUser).forEach(pRecs=>{
+      const r  = pRecs[0];
+      const d1 = pRecs[0] ? new Date(pRecs[0].ts).toLocaleDateString() : '';
+      const d2 = pRecs[1] ? new Date(pRecs[1].ts).toLocaleDateString() : '';
+      scertRows.push([slNo++, r.uname||'', r.desig||'', r.contact||'', r.bac||'',
+                      r.institution||'', r.vname||'', r.district||'', d1, d2]);
+    });
+    scertRows.push([]); // blank row between events
+  });
+  if(!scertRows.length) scertRows.push([1,'No records yet','','','','','','','','']);
+
+  const scertData = [...scertTitle, ...scertMeta, ...scertHdrs, ...scertRows];
+  const ws1 = XLSX.utils.aoa_to_sheet(scertData);
+  if(ws1['A1']) ws1['A1'].s = titleS;
+  // Style header row (row 4 = index 4 in 1-based)
+  ['A','B','C','D','E','F','G','H','I','J'].forEach(col=>{
+    const cell = ws1[col+'4'];
+    if(cell) cell.s = hdrS();
+  });
+  ws1['!rows'] = [{hpt:20},{hpt:14},{hpt:6},{hpt:28}]; // title/meta/blank/header heights
+  setCols(ws1, [7, 24, 18, 16, 16, 26, 22, 16, 20, 20]);
+  // Merge title cell across all columns
+  if(!ws1['!merges']) ws1['!merges']=[];
+  ws1['!merges'].push({s:{r:0,c:0},e:{r:0,c:9}});
+  ws1['!merges'].push({s:{r:1,c:0},e:{r:1,c:9}});
+  XLSX.utils.book_append_sheet(wb, ws1, 'Attendance Register');
+
+  /* ══════════════════════════════════════
+     SHEET 2 – Full Detail Log
+  ══════════════════════════════════════ */
+  const logHdr  = [['SCERT Training Attendance – Full Detail Log'],['Generated: '+new Date().toLocaleString()],[]];
+  const logCols = [['Sl.No','Name','Designation','Contact','BAC','Institution','Venue','District','Event','Date','Time','Distance (m)','Status']];
+  const logRows = recs.slice().reverse().map((r,i)=>{
+    const d=r.ts?new Date(r.ts):null;
+    return [i+1,r.uname||'',r.desig||'',r.contact||'',r.bac||'',r.institution||'',
+            r.vname||'',r.district||'',r.ename||'',
+            d?d.toLocaleDateString():'',
+            d?d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'',
+            r.dist?Math.round(r.dist):'','Present'];
+  });
+  const logData=[...logHdr,...logCols,...logRows,[],['Total Records:',recs.length]];
+  const ws2=XLSX.utils.aoa_to_sheet(logData);
+  if(ws2['A1']) ws2['A1'].s=titleS;
+  ['A','B','C','D','E','F','G','H','I','J','K','L','M'].forEach(col=>{
+    const c=ws2[col+'4']; if(c) c.s=hdrS();
+  });
+  logRows.forEach((_,i)=>{
+    if(i%2===0) ['A','B','C','D','E','F','G','H','I','J','K','L','M'].forEach(col=>{
+      const ref=col+(5+i); if(ws2[ref]) ws2[ref].s={fill:{fgColor:{rgb:'F1F3F4'}}};
+    });
+  });
+  setCols(ws2,[7,22,16,14,14,22,20,14,22,12,10,12,10]);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Full Detail Log');
+
+  /* ══════════════════════════════════════
+     SHEET 3 – Summary by Event
+  ══════════════════════════════════════ */
+  const evHdr  = [['SCERT – Summary by Event'],[]];
+  const evCols = [['Event','Venue','Date','Total Check-ins','Registered Participants','Attendance %']];
+  const evRows = events.map(e=>{
+    const c=recs.filter(r=>r.evId===e.id).length;
+    const t=users.length||1;
+    return [e.name||'',e.vname||'',e.date||'',c,t,parseFloat((c/t*100).toFixed(1))];
+  });
+  if(!evRows.length) evRows.push(['No events yet','','',0,0,0]);
+  const ws3=XLSX.utils.aoa_to_sheet([...evHdr,...evCols,...evRows]);
+  if(ws3['A1']) ws3['A1'].s=titleS;
+  ['A','B','C','D','E','F'].forEach(col=>{ const c=ws3[col+'3']; if(c) c.s=hdrS(); });
+  setCols(ws3,[28,22,12,16,22,15]);
+  XLSX.utils.book_append_sheet(wb, ws3, 'Summary by Event');
+
+  /* ══════════════════════════════════════
+     SHEET 4 – By Participant
+  ══════════════════════════════════════ */
+  const pH=[['SCERT – Participant Summary'],[]];
+  const pC=[['Name','Designation','Contact','BAC','Institution','District','Check-ins','Events','Last Check-in']];
+  const pR=users.map(u=>{
+    const mr=recs.filter(r=>r.uid===u.id);
+    const ev=new Set(mr.map(r=>r.evId));
+    const last=mr.length?new Date(Math.max(...mr.map(r=>new Date(r.ts)))).toLocaleDateString():'—';
+    return [u.name||'',u.desig||'',u.contact||'',u.bac||'',u.institution||'',u.district||'',mr.length,ev.size,last];
+  });
+  if(!pR.length) pR.push(['No participants','','','','','',0,0,'—']);
+  const ws4=XLSX.utils.aoa_to_sheet([...pH,...pC,...pR]);
+  if(ws4['A1']) ws4['A1'].s=titleS;
+  ['A','B','C','D','E','F','G','H','I'].forEach(col=>{ const c=ws4[col+'3']; if(c) c.s=hdrS(); });
+  setCols(ws4,[22,16,14,14,24,16,12,10,16]);
+  XLSX.utils.book_append_sheet(wb, ws4, 'By Participant');
+
+  /* ── Write file ── */
+  XLSX.writeFile(wb, 'SCERT-Attendance-'+dateStr+'.xlsx', {bookType:'xlsx',type:'binary',cellStyles:true});
+  toast('Excel report downloaded!');
+}
+
+/* ════════════════════════════════════════════
+   PARTICIPANT RENDERS
+════════════════════════════════════════════ */
+function renderPart(tab) {
+  const cnt=document.getElementById('part-cnt');
+  if(tab==='home')    renderPHome(cnt);
+  else if(tab==='checkin') renderPCheckin(cnt);
+  else if(tab==='msgs')    renderPMsgs(cnt);
+  else if(tab==='record')  renderPRecord(cnt);
+  updatePartBadge();
+}
+
+function updatePartBadge() {
+  const unread=DB.g('messages').filter(m=>
+    (m.type==='announcement'||m.recipId===CU.id) && !(m.readBy||[]).includes(CU.id)
+  ).length;
+  const b=document.getElementById('p-msg-badge');
+  if(unread>0){b.style.display='block';b.textContent=unread;}
+  else b.style.display='none';
+}
+
+function renderPHome(c) {
+  const att=DB.g('attendance').filter(a=>a.uid===CU.id);
+  const msgs=DB.g('messages').filter(m=>m.type==='announcement'||m.recipId===CU.id);
+  const unread=msgs.filter(m=>!(m.readBy||[]).includes(CU.id)).length;
+  c.innerHTML=`
+    <div style="margin-bottom:14px;">
+      <p style="font-size:12px;color:var(--sub);">Welcome,</p>
+      <p style="font-size:19px;font-weight:700;">${esc(CU.name)}</p>
+    </div>
+    <div class="stats-grid">
+      <div class="sc"><div class="sc-ico">✅</div><div class="sc-val">${att.length}</div><div class="sc-lbl">My Check-ins</div></div>
+      <div class="sc"><div class="sc-ico">📬</div><div class="sc-val">${unread}</div><div class="sc-lbl">Unread Msgs</div></div>
+    </div>
+    <div class="st" style="margin-bottom:10px;">Quick Actions</div>
+    <div class="li" onclick="pNav('checkin')">
+      <div class="ico" style="background:#e6f4ea;">📍</div>
+      <div class="inf"><h3>Check In Now</h3><p>GPS-verify your attendance at a venue</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="pNav('msgs')">
+      <div class="ico" style="background:#e8f0fe;">💬</div>
+      <div class="inf"><h3>Messages</h3><p>${unread} unread message${unread!==1?'s':''}</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="pNav('record')">
+      <div class="ico" style="background:#fce8e6;">📋</div>
+      <div class="inf"><h3>My Attendance Record</h3><p>${att.length} total check-ins</p></div>
+      <div class="arr">›</div>
+    </div>
+  `;
+}
+
+function renderPCheckin(c) {
+  const events=DB.g('events');
+  c.innerHTML=`
+    <div class="st" style="margin-bottom:12px;">Check In to Event</div>
+    <div class="fg"><label class="fl">Select Event</label>
+      <select class="fc" id="ci-event" onchange="onEvSel()">
+        <option value="">-- Choose an event --</option>
+        ${events.map(e=>`<option value="${e.id}">${esc(e.name)} – ${e.date}</option>`).join('')}
+      </select></div>
+    <div id="ci-venue-info" style="display:none;" class="card" style="margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:2px;">Venue</div>
+      <div id="ci-vname" style="font-weight:600;font-size:14px;"></div>
+      <div id="ci-vradius" style="font-size:12px;color:var(--sub);"></div>
+    </div>
+    <div id="ci-geo-area" style="display:none;">
+      <div id="ci-geo-box" class="geo pend">
+        <span id="ci-geo-ico">⏳</span><span id="ci-geo-txt">Tap button below to get your location</span>
+      </div>
+      <div id="ci-dist-wrap" style="display:none;" class="ci-wrap">
+        <div class="ci-ico" id="ci-emoji">📍</div>
+        <div class="ci-dist" id="ci-distval">--</div>
+        <div class="ci-lbl" id="ci-distlbl">meters from venue</div>
+      </div>
+      <button class="btn btn-o" style="margin-bottom:10px;" onclick="getCiGPS()">📍 Get My Location</button>
+      <button class="btn btn-s" id="ci-btn" onclick="doCheckin()" disabled>✓ Mark My Attendance</button>
+    </div>
+    ${events.length===0?`<div class="empty"><div class="eico">📅</div><p>No events available.<br>Ask your admin to create one.</p></div>`:''}
+  `;
+}
+
+function onEvSel() {
+  const evId=document.getElementById('ci-event').value;
+  if(!evId){ document.getElementById('ci-venue-info').style.display='none'; document.getElementById('ci-geo-area').style.display='none'; return; }
+  const ev=DB.g('events').find(e=>e.id===evId);
+  const v=DB.g('venues').find(v=>v.id===ev.vid);
+  ciVenue=v;
+  document.getElementById('ci-vname').textContent=v?v.name:'Unknown venue';
+  document.getElementById('ci-vradius').textContent=v?`Geo-fence: ${v.radius}m radius`:'';
+  document.getElementById('ci-venue-info').style.display='block';
+  document.getElementById('ci-geo-area').style.display='block';
+  document.getElementById('ci-btn').disabled=true;
+  ciLat=null; ciLng=null;
+  document.getElementById('ci-dist-wrap').style.display='none';
+  setGeoBox('pend','⏳','Tap "Get My Location" to verify your position');
+}
+
+function getCiGPS() {
+  setGeoBox('pend','⏳','Getting your GPS location…');
+  if (!navigator.geolocation){ setGeoBox('err','❌','Geolocation not supported on this device'); return; }
+  navigator.geolocation.getCurrentPosition(pos=>{
+    ciLat=pos.coords.latitude; ciLng=pos.coords.longitude;
+    if (ciVenue) {
+      const dist=haversine(ciLat,ciLng,ciVenue.lat,ciVenue.lng);
+      const ok=dist<=ciVenue.radius;
+      document.getElementById('ci-dist-wrap').style.display='block';
+      document.getElementById('ci-distval').textContent=Math.round(dist)+'m';
+      document.getElementById('ci-distlbl').textContent=`from ${ciVenue.name} (limit: ${ciVenue.radius}m)`;
+      if(ok){
+        setGeoBox('','✅',`Within range! You are ${Math.round(dist)}m from the venue.`);
+        document.getElementById('ci-emoji').textContent='✅';
+        document.getElementById('ci-btn').disabled=false;
+      } else {
+        setGeoBox('err','❌',`Too far! You are ${Math.round(dist)}m away. Must be within ${ciVenue.radius}m.`);
+        document.getElementById('ci-emoji').textContent='❌';
+        document.getElementById('ci-btn').disabled=true;
+      }
+    }
+  }, err=>{
+    setGeoBox('err','❌','Location denied. Please enable GPS/location permissions.');
+  }, {enableHighAccuracy:true,timeout:12000,maximumAge:0});
+}
+
+function setGeoBox(cls, ico, txt) {
+  const b=document.getElementById('ci-geo-box');
+  b.className='geo'+(cls?' '+cls:'');
+  document.getElementById('ci-geo-ico').textContent=ico;
+  document.getElementById('ci-geo-txt').textContent=txt;
+}
+
+function doCheckin() {
+  const evId=document.getElementById('ci-event').value;
+  if(!evId||!ciLat||!ciVenue){ toast('Select event and verify location first'); return; }
+  const ev=DB.g('events').find(e=>e.id===evId);
+  const att=DB.g('attendance');
+  const today=new Date().toDateString();
+  if(att.find(a=>a.uid===CU.id&&a.evId===evId&&new Date(a.ts).toDateString()===today)){
+    toast('Already checked in for this event today!'); return;
+  }
+  const dist=haversine(ciLat,ciLng,ciVenue.lat,ciVenue.lng);
+  att.push({id:uid(),uid:CU.id,uname:CU.name,desig:CU.desig||'',contact:CU.contact||'',
+            bac:CU.bac||'',institution:CU.institution||'',district:CU.district||'',
+            evId,ename:ev.name,vid:ciVenue.id,vname:ciVenue.name,
+            lat:ciLat,lng:ciLng,dist,ts:new Date().toISOString()});
+  DB.s('attendance',att);
+  toast('✅ Attendance marked successfully!');
+  pNav('home');
+}
+
+function renderPMsgs(c) {
+  const msgs=DB.g('messages').filter(m=>m.type==='announcement'||m.recipId===CU.id||m.senderId===CU.id);
+  // Mark as read
+  const all=DB.g('messages');
+  all.forEach(m=>{ if(m.type==='announcement'||m.recipId===CU.id){if(!m.readBy)m.readBy=[];if(!m.readBy.includes(CU.id))m.readBy.push(CU.id);}});
+  DB.s('messages',all);
+  updatePartBadge();
+
+  c.innerHTML=`
+    <div class="sh"><span class="st">Messages</span>
+      <button class="sa" onclick="openMo('mo-preply')">+ Reply / Send</button></div>
+    ${msgs.length===0?`<div class="empty"><div class="eico">💬</div><p>No messages yet.</p></div>`
+    :msgs.slice().reverse().map(m=>msgCard(m,'part')).join('')}
+  `;
+}
+
+function renderPRecord(c) {
+  const att=DB.g('attendance').filter(a=>a.uid===CU.id);
+  c.innerHTML=`
+    <div class="sh"><span class="st">My Attendance (${att.length})</span></div>
+    <div class="card" style="margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--sub);font-weight:600;margin-bottom:6px;">MY PROFILE</div>
+      <div style="font-size:14px;font-weight:700;">${esc(CU.name)}</div>
+      <div style="font-size:12px;color:var(--sub);margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:3px;">
+        <div>📋 ${esc(CU.desig||'—')}</div>
+        <div>📞 ${esc(CU.contact||'—')}</div>
+        <div>🏫 ${esc(CU.institution||'—')}</div>
+        <div>📍 ${esc(CU.district||'—')}</div>
+        ${CU.bac?`<div>BAC: ${esc(CU.bac)}</div>`:''}
+      </div>
+    </div>
+    ${att.length===0?`<div class="empty"><div class="eico">📋</div><p>No attendance records yet.<br>Use Check In to mark attendance.</p></div>`
+    :att.slice().reverse().map((r,i)=>`
+      <div class="rr" style="flex-direction:column;align-items:stretch;gap:3px;">
+        <div style="display:flex;justify-content:space-between;">
+          <div style="font-size:13px;font-weight:600;">${esc(r.ename)}</div>
+          <span class="badge bg-s">✓ Present</span>
+        </div>
+        <div style="font-size:11px;color:var(--sub);">🏢 ${esc(r.vname)} &bull; 📍 ${esc(r.district||CU.district||'')}</div>
+        <div style="font-size:10px;color:var(--sub);">${fmtTime(r.ts)}${r.dist?' &bull; '+Math.round(r.dist)+'m from venue':''}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+/* ════════════════════════════════════════════
+   VENUE MODAL
+════════════════════════════════════════════ */
+function openMoVenue() {
+  capLat=null; capLng=null;
+  document.getElementById('vn-name').value='';
+  document.getElementById('vn-addr').value='';
+  document.getElementById('vn-radius').value=25;
+  document.getElementById('rv').textContent='25';
+  document.getElementById('vn-coords').style.display='none';
+  document.getElementById('vn-geo-status').className='geo pend';
+  document.getElementById('vn-geo-status').innerHTML='<span>⏳</span><span>Tap "Capture My Location" to set venue GPS</span>';
+  openMo('mo-venue');
+}
+
+function captureVenueGPS() {
+  document.getElementById('vn-geo-status').className='geo pend';
+  document.getElementById('vn-geo-status').innerHTML='<span>⏳</span><span>Getting location…</span>';
+  if(!navigator.geolocation){
+    document.getElementById('vn-geo-status').className='geo err';
+    document.getElementById('vn-geo-status').innerHTML='<span>❌</span><span>Geolocation not supported</span>';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos=>{
+    capLat=pos.coords.latitude; capLng=pos.coords.longitude;
+    document.getElementById('vn-geo-status').className='geo';
+    document.getElementById('vn-geo-status').innerHTML='<span>✅</span><span>Location captured successfully!</span>';
+    document.getElementById('vn-coords').style.display='block';
+    document.getElementById('vn-coords').textContent=`Lat: ${capLat.toFixed(6)}, Lng: ${capLng.toFixed(6)}  (±${Math.round(pos.coords.accuracy)}m accuracy)`;
+  }, err=>{
+    document.getElementById('vn-geo-status').className='geo err';
+    document.getElementById('vn-geo-status').innerHTML='<span>❌</span><span>Location denied – please enable GPS permissions.</span>';
+  },{enableHighAccuracy:true,timeout:12000});
+}
+
+function saveVenue() {
+  const name=document.getElementById('vn-name').value.trim();
+  const addr=document.getElementById('vn-addr').value.trim();
+  const radius=parseInt(document.getElementById('vn-radius').value);
+  if(!name){ toast('Enter venue name'); return; }
+  if(!capLat){ toast('Capture GPS location first'); return; }
+  const venues=DB.g('venues');
+  venues.push({id:uid(),name,address:addr,lat:capLat,lng:capLng,radius});
+  DB.s('venues',venues);
+  closeMo('mo-venue');
+  toast('Venue added!');
+  aNav('venues');
+}
+
+function delVenue(id, e) {
+  e.stopPropagation();
+  if(!confirm('Delete this venue?')) return;
+  DB.s('venues',DB.g('venues').filter(v=>v.id!==id));
+  aNav('venues');
+  toast('Venue deleted');
+}
+
+/* ════════════════════════════════════════════
+   EVENT MODAL
+════════════════════════════════════════════ */
+function openMoEvent() {
+  const venues=DB.g('venues');
+  if(!venues.length){ toast('Add a venue first'); aNav('venues'); return; }
+  document.getElementById('ev-name').value='';
+  document.getElementById('ev-desc').value='';
+  document.getElementById('ev-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('ev-venue').innerHTML=venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  openMo('mo-event');
+}
+
+function saveEvent() {
+  const name=document.getElementById('ev-name').value.trim();
+  const vid=document.getElementById('ev-venue').value;
+  const date=document.getElementById('ev-date').value;
+  const desc=document.getElementById('ev-desc').value.trim();
+  if(!name){ toast('Enter event name'); return; }
+  if(!date){ toast('Select a date'); return; }
+  const v=DB.g('venues').find(x=>x.id===vid);
+  if(!v){ toast('Select a valid venue'); return; }
+  const events=DB.g('events');
+  events.push({id:uid(),name,vid,vname:v.name,date,desc});
+  DB.s('events',events);
+  closeMo('mo-event');
+  toast('Event created!');
+  aNav('events');
+}
+
+function showEvDet(evId) {
+  const ev=DB.g('events').find(e=>e.id===evId);
+  const att=DB.g('attendance').filter(a=>a.evId===evId);
+  document.getElementById('evdet-title').textContent=ev.name;
+  document.getElementById('evdet-body').innerHTML=`
+    <div class="card" style="margin-bottom:12px;">
+      <p><b>Venue:</b> ${esc(ev.vname)}</p>
+      <p><b>Date:</b> ${ev.date}</p>
+      ${ev.desc?`<p><b>Description:</b> ${esc(ev.desc)}</p>`:''}
+    </div>
+    <div class="sh"><span class="st">Attendees (${att.length})</span></div>
+    ${att.length===0?'<p style="color:var(--sub);text-align:center;font-size:13px;">No check-ins yet</p>'
+    :att.slice().reverse().map((a,i)=>`
+      <div class="rr" style="flex-direction:column;align-items:stretch;gap:3px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:700;font-size:13px;">${i+1}. ${esc(a.uname)}</div>
+          <span class="badge bg-s">Present</span>
+        </div>
+        <div style="font-size:11px;color:var(--sub);display:grid;grid-template-columns:1fr 1fr;gap:2px;">
+          <div>📋 ${esc(a.desig||'—')}</div><div>📞 ${esc(a.contact||'—')}</div>
+          <div>🏫 ${esc(a.institution||'—')}</div><div>📍 ${esc(a.district||'—')}</div>
+          ${a.bac?`<div>BAC: ${esc(a.bac)}</div>`:''}
+        </div>
+        <div style="font-size:10px;color:var(--sub);">${fmtTime(a.ts)}${a.dist?' &bull; '+Math.round(a.dist)+'m':''}</div>
+      </div>`).join('')}
+    <button class="btn btn-d" style="margin-top:14px;" onclick="delEvent('${evId}')">Delete Event</button>
+  `;
+  openMo('mo-evdet');
+}
+
+function delEvent(id) {
+  if(!confirm('Delete this event and all its attendance records?')) return;
+  DB.s('events',DB.g('events').filter(e=>e.id!==id));
+  DB.s('attendance',DB.g('attendance').filter(a=>a.evId!==id));
+  closeMo('mo-evdet');
+  toast('Event deleted');
+  aNav('events');
+}
+
+/* ════════════════════════════════════════════
+   MESSAGING
+════════════════════════════════════════════ */
+function openMoMsg() {
+  document.getElementById('msg-body').value='';
+  document.getElementById('msg-file').value='';
+  document.getElementById('msg-type').value='announcement';
+  document.getElementById('msg-recip-grp').style.display='none';
+  const parts=DB.g('users').filter(u=>u.role==='participant');
+  document.getElementById('msg-recip').innerHTML=parts.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');
+  openMo('mo-msg');
+}
+function toggleRecip(){
+  document.getElementById('msg-recip-grp').style.display=
+    document.getElementById('msg-type').value==='chat'?'block':'none';
+}
+
+function adminSendMsg() {
+  const body=document.getElementById('msg-body').value.trim();
+  const type=document.getElementById('msg-type').value;
+  if(!body){ toast('Enter a message'); return; }
+  const msgs=DB.g('messages');
+  let recipId=null, recipName=null;
+  if(type==='chat'){
+    const sel=document.getElementById('msg-recip');
+    recipId=sel.value; recipName=sel.options[sel.selectedIndex]?.text;
+  }
+  const m={id:uid(),senderRole:'admin',senderId:CU.id,senderName:CU.name,
+           type,body,recipId,recipName,ts:new Date().toISOString(),readBy:[CU.id]};
+  const file=document.getElementById('msg-file').files[0];
+  const finish=()=>{ msgs.push(m); DB.s('messages',msgs); closeMo('mo-msg'); toast('Message sent!'); aNav('msgs'); };
+  if(file){ readFile(file, m, finish); } else { finish(); }
+}
+
+function partSendMsg() {
+  const body=document.getElementById('pr-body').value.trim();
+  if(!body){ toast('Enter a message'); return; }
+  const msgs=DB.g('messages');
+  const m={id:uid(),senderRole:'participant',senderId:CU.id,senderName:CU.name,
+           type:'chat',body,ts:new Date().toISOString(),readBy:[CU.id]};
+  const file=document.getElementById('pr-file').files[0];
+  const finish=()=>{ msgs.push(m); DB.s('messages',msgs); closeMo('mo-preply'); toast('Message sent!'); pNav('msgs'); };
+  if(file){ readFile(file, m, finish); } else { finish(); }
+}
+
+function readFile(file, msgObj, cb) {
+  const reader=new FileReader();
+  reader.onload=e=>{ msgObj.fname=file.name; msgObj.fdata=e.target.result; cb(); };
+  reader.readAsDataURL(file);
+}
+
+function dlAttach(msgId) {
+  const m=DB.g('messages').find(m=>m.id===msgId);
+  if(!m||!m.fdata) return;
+  const a=document.createElement('a'); a.href=m.fdata; a.download=m.fname; a.click();
+}
+
+/* ════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════ */
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function fmtTime(iso) {
+  if(!iso) return '';
+  const d=new Date(iso);
+  return d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+function openMo(id){ document.getElementById(id).classList.add('active'); }
+function closeMo(id){ document.getElementById(id).classList.remove('active'); }
+
+function toast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// Close modals on overlay tap
+document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{
+  if(e.target===o) o.classList.remove('active');
+}));
+
+/* ─── Boot ─── */
+boot();
+</script>
+
+<!-- ══════════════════════════════════════════
+     PWA – Service Worker Registration
+══════════════════════════════════════════ -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        console.log('[PWA] Service worker registered:', reg.scope);
+
+        // Show "Update available" toast when a new SW is waiting
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              toast('🔄 Update available – refresh to apply');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[PWA] SW registration failed:', err));
+  });
+}
+
+// ── "Add to Home Screen" prompt (Android Chrome) ──
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install banner after a short delay
+  setTimeout(showInstallBanner, 3000);
+});
+
+function showInstallBanner() {
+  if (!deferredPrompt) return;
+  const banner = document.createElement('div');
+  banner.id = 'install-banner';
+  banner.style.cssText = `
+    position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:#fff;border-radius:14px;padding:12px 16px;
+    box-shadow:0 4px 20px rgba(0,0,0,.18);display:flex;align-items:center;
+    gap:12px;z-index:500;width:calc(100% - 32px);max-width:398px;
+    border:1.5px solid #e0e0e0;`;
+  banner.innerHTML = `
+    <span style="font-size:28px;">📍</span>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:700;color:#202124;">Install SCERT Attendance</div>
+      <div style="font-size:11px;color:#5f6368;">Add to home screen for offline use</div>
+    </div>
+    <button onclick="doInstall()" style="background:#1a73e8;color:#fff;border:none;
+      border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Install</button>
+    <button onclick="document.getElementById('install-banner').remove()"
+      style="background:none;border:none;color:#5f6368;font-size:18px;cursor:pointer;padding:2px 6px;">✕</button>`;
+  document.body.appendChild(banner);
+}
+
+function doInstall() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(choice => {
+    if (choice.outcome === 'accepted') toast('✅ App installed! Find it on your home screen.');
+    deferredPrompt = null;
+    const b = document.getElementById('install-banner');
+    if (b) b.remove();
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  toast('✅ SCERT Attendance installed successfully!');
+  deferredPrompt = null;
+});
+</script>
+</body>
+</html>
