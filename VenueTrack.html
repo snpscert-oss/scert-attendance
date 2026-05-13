@@ -265,11 +265,98 @@
       <div class="fg"><label class="fl">Contact Number *</label>
         <input type="tel" class="fc" id="rg-contact" placeholder="10-digit mobile number" maxlength="15"></div>
       <div class="fg"><label class="fl">BAC (Block Academic Coordinator)</label>
-        <input type="text" class="fc" id="rg-bac" placeholder="BAC name / code"></div>
+        <select class="fc" id="rg-bac">
+          <option value="">-- Select BAC --</option>
+          <option>Khamdong</option>
+          <option>Nandok</option>
+          <option>Ranka</option>
+          <option>Rakdong Tintek</option>
+          <option>Martam</option>
+          <option>Gyalshing</option>
+          <option>Yuksum</option>
+          <option>Dentam</option>
+          <option>Chongrang</option>
+          <option>Bermiok Martam</option>
+          <option>Kabi</option>
+          <option>Mangan</option>
+          <option>Passingdang</option>
+          <option>Chungthang</option>
+          <option>Temi</option>
+          <option>Poklok Nandugaon</option>
+          <option>Namthang</option>
+          <option>Namchi</option>
+          <option>Ravangla</option>
+          <option>Yangang</option>
+          <option>Sikkip</option>
+          <option>Sumbuk</option>
+          <option>Parakha</option>
+          <option>Rhenock</option>
+          <option>Regu</option>
+          <option>Namcheybong</option>
+          <option>Pakyong</option>
+          <option>Duga</option>
+          <option>Daramdin</option>
+          <option>Soreng</option>
+          <option>Baiguney</option>
+          <option>Mangalbaria</option>
+          <option>Chumbong</option>
+          <option>Kaluk</option>
+        </select></div>
       <div class="fg"><label class="fl">Name of Institution *</label>
         <input type="text" class="fc" id="rg-institution" placeholder="School / college name"></div>
       <div class="fg"><label class="fl">District *</label>
-        <input type="text" class="fc" id="rg-district" placeholder="District name"></div>
+        <select class="fc" id="rg-district">
+          <option value="">-- Select District --</option>
+          <option>East Sikkim</option>
+          <option>West Sikkim</option>
+          <option>North Sikkim</option>
+          <option>South Sikkim</option>
+          <option>Pakyong</option>
+          <option>Soreng</option>
+        </select></div>
+      <div class="fg"><label class="fl">Training Venue</label>
+        <select class="fc" id="rg-venue">
+          <option value="">-- Select Venue --</option>
+          <option>AHOPOOL SS</option>
+          <option>BIKMAT SSS</option>
+          <option>CHAKUNG SSS</option>
+          <option>CHITTARAY PS</option>
+          <option>DENTAM SSS</option>
+          <option>DEORALI GSSS</option>
+          <option>GYALSHING GIRLS SSS</option>
+          <option>HEE GYATHANG SSS</option>
+          <option>KARONGTHANG SS</option>
+          <option>KEWZING TEA GARDEN PS</option>
+          <option>KGSSS DARAMDIN</option>
+          <option>LINGMOO SSS</option>
+          <option>LINKEY SS</option>
+          <option>MAHATMA SRIJUNGA SSS</option>
+          <option>MANGAN SSS</option>
+          <option>MELLI BAZAR SSS</option>
+          <option>MODERN SSS</option>
+          <option>NAMCHI BOYS SSS</option>
+          <option>NAMCHI NEW SS</option>
+          <option>NAMPHING SS</option>
+          <option>NAMTHANG SSS</option>
+          <option>NANDUGAON SSS</option>
+          <option>PAKYONG JHS</option>
+          <option>PASSINGDONG SS</option>
+          <option>PEWTHANG PS</option>
+          <option>PHENSONG SS</option>
+          <option>PHODONG SSS</option>
+          <option>RALEY SS</option>
+          <option>RANIPOOL BPSSS</option>
+          <option>RANKA SSS</option>
+          <option>RINCHENPONG SS</option>
+          <option>RONGLI SS KPTGSS</option>
+          <option>SIRWANI SS</option>
+          <option>SLDGK MANGALBARIA SSS</option>
+          <option>SORENG GOVT SSS</option>
+          <option>TARPIN SS</option>
+          <option>TSONG PS</option>
+          <option>TTGSSS CHUNGTHANG</option>
+          <option>ZITLANG JHS</option>
+        </select></div>
       <div class="fg"><label class="fl">Email (optional)</label>
         <input type="email" class="fc" id="rg-email" placeholder="email@example.com"></div>
       <div class="fg"><label class="fl">Create 4-digit PIN *</label>
@@ -435,6 +522,14 @@ function boot() {
     users.push({id:uid(),name:'Administrator',email:'admin@scert.app',pin:'1234',role:'admin'});
     DB.s('users',users);
   }
+  // Seed default BAC list for Sikkim if not yet set
+  if (!DB.g('bacs').length) {
+    DB.s('bacs',['Khamdong','Nandok','Ranka','Rakdong Tintek','Martam','Gyalshing',
+      'Yuksum','Dentam','Chongrang','Bermiok Martam','Kabi','Mangan','Passingdang',
+      'Chungthang','Temi','Poklok Nandugaon','Namthang','Namchi','Ravangla','Yangang',
+      'Sikkip','Sumbuk','Parakha','Rhenock','Regu','Namcheybong','Pakyong','Duga',
+      'Daramdin','Soreng','Baiguney','Mangalbaria','Chumbong','Kaluk']);
+  }
   // Restore session
   const sess = DB.go('session');
   if (sess) {
@@ -454,6 +549,7 @@ let ciVenue = null;               // currently selected check-in venue
 function showStep(id) {
   ['ls-role','ls-pin','ls-reg'].forEach(s=>document.getElementById(s).style.display='none');
   document.getElementById(id).style.display='block';
+  if (id==='ls-reg') refreshRegDropdowns();
 }
 
 function selectRole(role) {
@@ -496,19 +592,20 @@ function doRegister() {
   const name        = document.getElementById('rg-name').value.trim();
   const desig       = document.getElementById('rg-desig').value.trim();
   const contact     = document.getElementById('rg-contact').value.trim();
-  const bac         = document.getElementById('rg-bac').value.trim();
+  const bac         = document.getElementById('rg-bac').value;
   const institution = document.getElementById('rg-institution').value.trim();
-  const district    = document.getElementById('rg-district').value.trim();
+  const district    = document.getElementById('rg-district').value;
+  const venue       = document.getElementById('rg-venue').value;
   const email       = document.getElementById('rg-email').value.trim();
   const pin         = document.getElementById('rg-pin').value.trim();
   if (!name)        { toast('Enter your name'); return; }
   if (!desig)       { toast('Enter your designation'); return; }
   if (!contact)     { toast('Enter your contact number'); return; }
   if (!institution) { toast('Enter name of institution'); return; }
-  if (!district)    { toast('Enter your district'); return; }
+  if (!district)    { toast('Select your district'); return; }
   if (!/^\d{4}$/.test(pin)){ toast('PIN must be exactly 4 digits'); return; }
   const users = DB.g('users');
-  users.push({id:uid(),name,desig,contact,bac,institution,district,email,pin,role:'participant'});
+  users.push({id:uid(),name,desig,contact,bac,institution,district,venue,email,pin,role:'participant'});
   DB.s('users',users);
   toast('Registered! Please sign in.');
   showStep('ls-role');
@@ -612,6 +709,16 @@ function renderAHome(c) {
       <div class="inf"><h3>Attendance Reports</h3><p>View &amp; export PDF</p></div>
       <div class="arr">›</div>
     </div>
+    <div class="li" onclick="openMoBac()">
+      <div class="ico" style="background:#f3e8fd;">📋</div>
+      <div class="inf"><h3>Manage BAC List</h3><p>Add / remove BAC entries for registration</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="openMoChPin()">
+      <div class="ico" style="background:#fff3e0;">🔑</div>
+      <div class="inf"><h3>Change Admin PIN</h3><p>Update your 4-digit login PIN</p></div>
+      <div class="arr">›</div>
+    </div>
   `;
 }
 
@@ -640,7 +747,7 @@ function renderAEvents(c) {
   c.innerHTML=`
     <div class="sh"><span class="st">Events (${events.length})</span>
       <button class="sa" onclick="openMoEvent()">+ Add Event</button></div>
-    ${events.length===0?`<div class="empty"><div class="eico">📅</div><p>No events yet.</p></div>`
+    ${events.length===0?`<div class="empty"><div class="eico">📅</div><p>No events yet.</p>${DB.g('venues').length===0?`<p style="font-size:12px;color:var(--danger);margin-top:8px;">⚠️ You must add a venue first before creating events.</p><button class="btn btn-o btn-sm" style="width:auto;margin-top:10px;" onclick="aNav('venues')">Go to Venues →</button>`:''}</div>`
     :events.map(e=>{
       const cnt=DB.g('attendance').filter(a=>a.evId===e.id).length;
       return `<div class="li" onclick="showEvDet('${e.id}')">
@@ -1012,6 +1119,16 @@ function renderPHome(c) {
       <div class="inf"><h3>My Attendance Record</h3><p>${att.length} total check-ins</p></div>
       <div class="arr">›</div>
     </div>
+    <div class="li" onclick="openMoVenue()">
+      <div class="ico" style="background:#e8f0fe;">🏢</div>
+      <div class="inf"><h3>Add New Venue</h3><p>Register a training venue with GPS</p></div>
+      <div class="arr">›</div>
+    </div>
+    <div class="li" onclick="openMoChPin()">
+      <div class="ico" style="background:#fff3e0;">🔑</div>
+      <div class="inf"><h3>Change PIN</h3><p>Update your 4-digit login PIN</p></div>
+      <div class="arr">›</div>
+    </div>
   `;
 }
 
@@ -1134,7 +1251,10 @@ function renderPRecord(c) {
   c.innerHTML=`
     <div class="sh"><span class="st">My Attendance (${att.length})</span></div>
     <div class="card" style="margin-bottom:12px;">
-      <div style="font-size:12px;color:var(--sub);font-weight:600;margin-bottom:6px;">MY PROFILE</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div style="font-size:12px;color:var(--sub);font-weight:600;">MY PROFILE</div>
+        <button class="btn btn-o btn-sm" style="font-size:11px;" onclick="openMoChPin()">🔑 Change PIN</button>
+      </div>
       <div style="font-size:14px;font-weight:700;">${esc(CU.name)}</div>
       <div style="font-size:12px;color:var(--sub);margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:3px;">
         <div>📋 ${esc(CU.desig||'—')}</div>
@@ -1142,6 +1262,7 @@ function renderPRecord(c) {
         <div>🏫 ${esc(CU.institution||'—')}</div>
         <div>📍 ${esc(CU.district||'—')}</div>
         ${CU.bac?`<div>BAC: ${esc(CU.bac)}</div>`:''}
+        ${CU.venue?`<div>🏢 ${esc(CU.venue)}</div>`:''}
       </div>
     </div>
     ${att.length===0?`<div class="empty"><div class="eico">📋</div><p>No attendance records yet.<br>Use Check In to mark attendance.</p></div>`
@@ -1204,7 +1325,9 @@ function saveVenue() {
   DB.s('venues',venues);
   closeMo('mo-venue');
   toast('Venue added!');
-  aNav('venues');
+  refreshRegVenueDropdown();
+  if (CU && CU.role==='admin') aNav('venues');
+  else if (CU) { pNav('checkin'); }
 }
 
 function delVenue(id, e) {
@@ -1368,14 +1491,147 @@ function toast(msg) {
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// Close modals on overlay tap
-document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{
-  if(e.target===o) o.classList.remove('active');
-}));
+// Close modals on overlay tap (event delegation so it covers dynamically added modals too)
+document.addEventListener('click', e=>{
+  if (e.target.classList && e.target.classList.contains('ov')) {
+    e.target.classList.remove('active');
+  }
+});
+
+/* ════════════════════════════════════════════
+   CHANGE PIN
+════════════════════════════════════════════ */
+function openMoChPin() {
+  ['cp1','cp2','cp3','cp4','np1','np2','np3','np4','rp1','rp2','rp3','rp4']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  openMo('mo-chpin');
+  setTimeout(()=>document.getElementById('cp1').focus(),100);
+}
+
+function doChangePIN() {
+  const cur=['cp1','cp2','cp3','cp4'].map(i=>document.getElementById(i).value).join('');
+  const nw =['np1','np2','np3','np4'].map(i=>document.getElementById(i).value).join('');
+  const re =['rp1','rp2','rp3','rp4'].map(i=>document.getElementById(i).value).join('');
+  if (cur.length!==4){ toast('Enter your current 4-digit PIN'); return; }
+  if (cur!==CU.pin){ toast('Current PIN is incorrect'); return; }
+  if (nw.length!==4){ toast('New PIN must be 4 digits'); return; }
+  if (nw!==re){ toast('New PINs do not match'); return; }
+  const users=DB.g('users');
+  const idx=users.findIndex(u=>u.id===CU.id);
+  if (idx===-1){ toast('User not found'); return; }
+  users[idx].pin=nw;
+  DB.s('users',users);
+  CU.pin=nw;
+  closeMo('mo-chpin');
+  toast('✅ PIN changed successfully!');
+}
+
+/* ════════════════════════════════════════════
+   BAC MANAGEMENT
+════════════════════════════════════════════ */
+function openMoBac() {
+  renderBacList();
+  document.getElementById('bac-input').value='';
+  openMo('mo-bac');
+}
+
+function renderBacList() {
+  const bacs=DB.g('bacs');
+  const cont=document.getElementById('bac-list');
+  if (!cont) return;
+  cont.innerHTML=bacs.length===0
+    ?'<div class="empty" style="padding:20px;"><div class="eico" style="font-size:30px;">📋</div><p>No BACs added yet.</p></div>'
+    :bacs.map(b=>`
+      <div class="rr" style="gap:8px;">
+        <div style="flex:1;font-size:13px;">${esc(b)}</div>
+        <button class="btn btn-d btn-sm" onclick="delBac(this)">✕</button>
+      </div>`).join('');
+}
+
+function saveBac() {
+  const val=document.getElementById('bac-input').value.trim();
+  if (!val){ toast('Enter BAC name'); return; }
+  const bacs=DB.g('bacs');
+  if (bacs.includes(val)){ toast('BAC already exists'); return; }
+  bacs.push(val);
+  DB.s('bacs',bacs);
+  document.getElementById('bac-input').value='';
+  renderBacList();
+  refreshRegBacDropdown();
+  toast('BAC added!');
+}
+
+function delBac(btn) {
+  const name=btn.parentElement.querySelector('div').textContent;
+  DB.s('bacs',DB.g('bacs').filter(b=>b!==name));
+  renderBacList();
+  refreshRegBacDropdown();
+  toast('BAC removed');
+}
+
+function refreshRegBacDropdown() {
+  const sel=document.getElementById('rg-bac');
+  if (!sel) return;
+  const bacs=DB.g('bacs');
+  sel.innerHTML=`<option value="">-- Select BAC (optional) --</option>`
+    +bacs.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
+}
+
+function refreshRegVenueDropdown() {
+  // Venue options are hard-coded in HTML from the official Sikkim school list.
+  // No dynamic refresh needed — admin-added GPS venues are separate from registration venue names.
+}
+
+function refreshRegDropdowns() {
+  refreshRegBacDropdown();
+  refreshRegVenueDropdown();
+}
 
 /* ─── Boot ─── */
 boot();
 </script>
+
+<!-- Change PIN Modal -->
+<div id="mo-chpin" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot">🔑 Change PIN</span><button class="mox" onclick="closeMo('mo-chpin')">✕</button></div>
+    <div class="fg"><label class="fl">Current PIN</label>
+      <div class="pin-wrap">
+        <input class="pin-in" type="password" maxlength="1" id="cp1" oninput="pMove(this,'cp2')">
+        <input class="pin-in" type="password" maxlength="1" id="cp2" oninput="pMove(this,'cp3')" onkeydown="pBack(event,'cp1')">
+        <input class="pin-in" type="password" maxlength="1" id="cp3" oninput="pMove(this,'cp4')" onkeydown="pBack(event,'cp2')">
+        <input class="pin-in" type="password" maxlength="1" id="cp4" onkeydown="pBack(event,'cp3')">
+      </div></div>
+    <div class="fg"><label class="fl">New PIN</label>
+      <div class="pin-wrap">
+        <input class="pin-in" type="password" maxlength="1" id="np1" oninput="pMove(this,'np2')">
+        <input class="pin-in" type="password" maxlength="1" id="np2" oninput="pMove(this,'np3')" onkeydown="pBack(event,'np1')">
+        <input class="pin-in" type="password" maxlength="1" id="np3" oninput="pMove(this,'np4')" onkeydown="pBack(event,'np2')">
+        <input class="pin-in" type="password" maxlength="1" id="np4" onkeydown="pBack(event,'np3')">
+      </div></div>
+    <div class="fg"><label class="fl">Confirm New PIN</label>
+      <div class="pin-wrap">
+        <input class="pin-in" type="password" maxlength="1" id="rp1" oninput="pMove(this,'rp2')">
+        <input class="pin-in" type="password" maxlength="1" id="rp2" oninput="pMove(this,'rp3')" onkeydown="pBack(event,'rp1')">
+        <input class="pin-in" type="password" maxlength="1" id="rp3" oninput="pMove(this,'rp4')" onkeydown="pBack(event,'rp2')">
+        <input class="pin-in" type="password" maxlength="1" id="rp4" onkeydown="pBack(event,'rp3')">
+      </div></div>
+    <button class="btn btn-p" onclick="doChangePIN()">✅ Update PIN</button>
+  </div>
+</div>
+
+<!-- BAC Management Modal -->
+<div id="mo-bac" class="ov">
+  <div class="mo">
+    <div class="moh"><span class="mot">📋 Manage BAC List</span><button class="mox" onclick="closeMo('mo-bac')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px;">Add Block Academic Coordinator names that participants can select during registration.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input type="text" class="fc" id="bac-input" placeholder="Enter BAC name…" style="flex:1;">
+      <button class="btn btn-p btn-sm" style="white-space:nowrap;" onclick="saveBac()">+ Add</button>
+    </div>
+    <div id="bac-list"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════
      PWA – Service Worker Registration
